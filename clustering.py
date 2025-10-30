@@ -164,6 +164,7 @@ class DTWClustering(object):
         
     def train(self):
         """Clusters the time series together."""
+        np.random.seed(11)
         self.centroids = random.sample(list(self.data), self.k)        
         self.__init_workers()
         
