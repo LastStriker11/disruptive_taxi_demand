@@ -1,0 +1,243 @@
+import numpy as np
+from scipy.optimize import minimize
+
+def resilience_curve(t, params):
+    (A_d, k_d, v_d,
+     A_r, k_r, v_r, m,
+     t_d, t_r, t_s, k_s) = params
+    
+    # Disruption phase
+    D = A_d / (1 + np.exp(-k_d * (t - t_d)))**v_d
+    
+    # Recovery phase
+    R = A_r / (1 + np.exp(-k_r * (t - t_r)))**v_r + m * (t - t_r)
+    
+    # Smooth transition
+    S = 1 / (1 + np.exp(-k_s * (t - t_s)))
+    
+    return 1 + (1 - S) * D + S * R
+
+# === Simulation setup ===
+t = np.linspace(0, 25, 300)   # time vector
+
+# Baseline parameters (typical values)
+base_params = [-0.5,  1.5,  2.31544508, # A_d, k_d, v_d
+               -0.5, -0.1,  3.55798098, # A_r, k_r, v_r
+               0.02752209,  # m
+               7.38466884, 19.37162467, 11.61923382, # t_d, t_r, t_s
+               1]  # k_s
+cmap = plt.cm.Reds
+colors = [cmap((4-i)/4) for i in range(4)]
+fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(11, 6))
+for i in range(3):
+    for j in range(3):
+        axes[i,j].tick_params(direction='in', top=True, right=True, which='both', width=1)
+        axes[i,j].spines[['bottom','top','left','right']].set_linewidth(1)
+        axes[i,j].yaxis.set_minor_locator(tck.AutoMinorLocator())
+        axes[i,j].xaxis.set_minor_locator(tck.AutoMinorLocator())
+        axes[i,j].set_xlim(0, 25)
+        # axes[i,j].set_ylim(-1, 0.3)
+        if i<2:
+            axes[i,j].set_xticklabels([])
+        # if j>0:
+            # axes[i,j].set_yticklabels([])
+# === 1. Explore disruption parameters (A_d, k_d, v_d) ===
+for c, A_d in enumerate([-1.0, -0.5, 0]):
+    params = base_params.copy()
+    params[0] = A_d
+    axes[0,0].plot(t, resilience_curve(t, params), label=f"$A_d={A_d}$", color=colors[c])
+axes[0,0].set_ylabel("Functionality"); axes[0,0].legend(handlelength=1); axes[0,0].grid(True, linestyle='--', alpha=0.5) 
+axes[0,0].set_yticks([0.2,0.6,1])
+
+for c, k_d in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[1] = k_d
+    axes[0,1].plot(t, resilience_curve(t, params), label=f"$k_d={k_d}$", color=colors[c])
+axes[0,1].legend(handlelength=1); axes[0,1].grid(True, linestyle='--', alpha=0.5)
+
+for c, v_d in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[2] = v_d
+    axes[0,2].plot(t, resilience_curve(t, params), label=f"$v_d={v_d}$", color=colors[c])
+axes[0,2].legend(handlelength=1); axes[0,2].grid(True, linestyle='--', alpha=0.5)
+
+
+# === 2. Explore recovery parameters (A_r, k_r, v_r, m) ===
+for c, A_r in enumerate([-1.0, -0.5, 0]):
+    params = base_params.copy()
+    params[3] = A_r
+    axes[1,0].plot(t, resilience_curve(t, params), label=f"$A_r={A_r}$", color=colors[c])
+axes[1,0].set_ylabel("Functionality"); axes[1,0].legend(handlelength=1); axes[1,0].grid(True, linestyle='--', alpha=0.5)
+
+for c, k_r in enumerate([-0.3,-0.2,-0.1]):
+    params = base_params.copy()
+    params[4] = k_r
+    axes[1,1].plot(t, resilience_curve(t, params), label=f"$k_r={k_r}$", color=colors[c])
+axes[1,1].legend(handlelength=1); axes[1,1].grid(True, linestyle='--', alpha=0.5)
+
+for c, v_r in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[5] = v_r
+    axes[1,2].plot(t, resilience_curve(t, params), label=f"$v_r={v_r}$", color=colors[c])
+axes[1,2].legend(handlelength=1); axes[1,2].grid(True, linestyle='--', alpha=0.5)
+
+# === 3. Explore transition parameters (t_d, t_r, t_s, k_s) ===
+for c, m in enumerate([0, 0.02, 0.05]):
+    params = base_params.copy()
+    params[6] = m
+    axes[2,0].plot(t, resilience_curve(t, params), label=f"$m={m}$", color=colors[c])
+axes[2,0].set_xlabel("Time"); axes[2,0].set_ylabel("Functionality"); axes[2,0].legend(handlelength=1); axes[2,0].grid(True, linestyle='--', alpha=0.5)
+
+for c, t_s in enumerate([10, 15, 20]):
+    params = base_params.copy()
+    params[9] = t_s
+    axes[2,1].plot(t, resilience_curve(t, params), label=f"$t_s={t_s}$", color=colors[c])
+axes[2,1].set_xlabel("Time"); axes[2,1].legend(handlelength=1); axes[2,1].grid(True, linestyle='--', alpha=0.5)
+
+for c, k_s in enumerate([0.5, 1.0, 3.0]):
+    params = base_params.copy()
+    params[10] = k_s
+    axes[2,2].plot(t, resilience_curve(t, params), label=f"$k_s={k_s}$", color=colors[c])
+axes[2,2].set_xlabel("Time"); axes[2,2].legend(handlelength=1); axes[2,2].grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+
+fig.savefig('figures/resilience_parameter_sensitivity.pdf', bbox_inches='tight')
+
+# === Simulation setup ===
+t = np.linspace(0, 25, 300)   # time vector
+
+# Baseline parameters (typical values)
+base_params = [-0.5,  1.5,  2.31544508, # A_d, k_d, v_d
+               -0.5, -0.1,  3.55798098, # A_r, k_r, v_r
+               0.02752209,  # m
+               7.38466884, 19.37162467, 11.61923382, # t_d, t_r, t_s
+               1]  # k_s
+cmap = plt.cm.Reds
+colors = [cmap((4-i)/4) for i in range(4)]
+# === 1. Explore disruption parameters (A_d, k_d, v_d) ===
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, A_d in enumerate([-1.0, -0.5, 0]):
+    params = base_params.copy()
+    params[0] = A_d
+    ax.plot(t, resilience_curve(t, params), label=f"$A_d={A_d}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+ax.set_yticks([0.2,0.6,1])
+fig.savefig('figures/para_sensitivity_Ad.pdf', bbox_inches='tight')
+
+# -------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, k_d in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[1] = k_d
+    ax.plot(t, resilience_curve(t, params), label=f"$k_d={k_d}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_kd.pdf', bbox_inches='tight')
+
+# -------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, v_d in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[2] = v_d
+    ax.plot(t, resilience_curve(t, params), label=f"$v_d={v_d}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_vd.pdf', bbox_inches='tight')
+
+# === 2. Explore recovery parameters (A_r, k_r, v_r, m) ===
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, A_r in enumerate([-1.0, -0.5, 0]):
+    params = base_params.copy()
+    params[3] = A_r
+    ax.plot(t, resilience_curve(t, params), label=f"$A_r={A_r}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_Ar.pdf', bbox_inches='tight')
+
+#-------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, k_r in enumerate([-0.3,-0.2,-0.1]):
+    params = base_params.copy()
+    params[4] = k_r
+    ax.plot(t, resilience_curve(t, params), label=f"$k_r={k_r}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_kr.pdf', bbox_inches='tight')
+
+#-------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, v_r in enumerate([0.5, 1.0, 2.0]):
+    params = base_params.copy()
+    params[5] = v_r
+    ax.plot(t, resilience_curve(t, params), label=f"$v_r={v_r}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_vr.pdf', bbox_inches='tight')
+
+# === 3. Explore transition parameters (t_d, t_r, t_s, k_s) ===
+#-------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, m in enumerate([0, 0.02, 0.05]):
+    params = base_params.copy()
+    params[6] = m
+    ax.plot(t, resilience_curve(t, params), label=f"$m={m}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_m.pdf', bbox_inches='tight')
+
+#-------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, t_s in enumerate([10, 15, 20]):
+    params = base_params.copy()
+    params[9] = t_s
+    ax.plot(t, resilience_curve(t, params), label=f"$t_s={t_s}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_ts.pdf', bbox_inches='tight')
+
+#-------
+fig, ax = plt.subplots(figsize=(4, 2))
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
+ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
+ax.set_xlim(0, 25)
+for c, k_s in enumerate([0.5, 1.0, 3.0]):
+    params = base_params.copy()
+    params[10] = k_s
+    ax.plot(t, resilience_curve(t, params), label=f"$k_s={k_s}$", color=colors[c])
+ax.set_ylabel("Functionality"); ax.legend(handlelength=1); ax.grid(True, linestyle='--', alpha=0.5) 
+fig.savefig('figures/para_sensitivity_ks.pdf', bbox_inches='tight')
