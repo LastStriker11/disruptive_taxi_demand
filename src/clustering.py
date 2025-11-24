@@ -107,7 +107,7 @@ class DTWClustering(object):
         The cluster assignments for the series. Key is the centroid index.
     """
     def __init__(self, data, k, max_iters=10, window_size=4,
-        n_jobs=cpu_count(), verbose=True):
+        n_jobs = cpu_count(), verbose=True):
         self.data = data
         self.k = k
         self.n_jobs = n_jobs
@@ -124,18 +124,25 @@ class DTWClustering(object):
         series = self.data[series_index]
         minimum_distance = float('inf')
         closest_cluster = None
+
         for cluster_index, cluster_series in enumerate(self.centroids):
-            if lb_keogh(series, cluster_series, self.window_size):
-                current_distance = dtw_distance(series, cluster_series,
-                    self.window_size)
+            lb_dist = lb_keogh(series, cluster_series, self.window_size)
+            # Only compute DTW if LB_Keogh lower bound is promising
+            if lb_dist < minimum_distance:
+                current_distance = dtw_distance(series, cluster_series, self.window_size)
                 if current_distance < minimum_distance:
                     minimum_distance = current_distance
                     closest_cluster = cluster_index
+
+        # Fallback safeguard
+        if closest_cluster is None:
+            closest_cluster = 0
 
         if closest_cluster not in self.clusters:
             self.clusters[closest_cluster] = []
 
         self.clusters[closest_cluster].append(series_index)
+
     
     def __dequeue_worker(self):
         """Worker function for parallelism."""
@@ -199,26 +206,18 @@ class DTWClustering(object):
         self.__stop_workers()
 
     def predict(self, series):
-        """Predicts the cluster that the provided time series belongs to.
-
-        Parameters
-        ----------
-        series : array_like
-            The series to predict.
-
-        Returns
-        -------
-        (float, int) :
-            The distance and cluster index.
-        """
-        """Computes the DTW distance for a given time series index."""
         minimum_distance = float('inf')
         closest_cluster = None
+
         for cluster_index, cluster_series in enumerate(self.centroids):
-            if lb_keogh(series, cluster_series, self.window_size):
+            lb_dist = lb_keogh(series, cluster_series, self.window_size)
+            if lb_dist < minimum_distance:
                 current_distance = dtw_distance(series, cluster_series, self.window_size)
                 if current_distance < minimum_distance:
                     minimum_distance = current_distance
                     closest_cluster = cluster_index
 
-        return (minimum_distance, cluster_index)
+        if closest_cluster is None:
+            closest_cluster = 0
+
+        return (minimum_distance, closest_cluster)
