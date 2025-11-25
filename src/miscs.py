@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import os
+import random
 
 def def_od_matrix():
     od_list = []
@@ -52,3 +54,26 @@ def od_normalized_demand(df_normalized, start_day, end_day):
     df_od = pd.DataFrame(od_normalized, columns = [i for i in range(start_day,end_day)])
     df_od.index = od_list
     return df_od
+
+def seed_everything(seed: int = 42):
+
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+
+    try:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    except ImportError:
+        pass
+
+    try:
+        import tensorflow as tf
+        tf.random.set_seed(seed)
+    except ImportError:
+        pass
+
+    print(f"Randomness fixed with seed={seed}")

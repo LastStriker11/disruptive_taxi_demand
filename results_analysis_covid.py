@@ -8,14 +8,17 @@ from scipy.stats import gaussian_kde
 import pickle
 from src.clustering import DTWClustering
 from src.resilience_model import resilience_curve, loss
+from src.analysis import compute_r2_smape_per_sample
 #%%
 # load data and model
 odtrips = np.load('results/covid_demand_normalized.npy')
 model = DTWClustering(odtrips, 4)
 model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid.pkl', 'rb'))
 time = range(len(model.centroids[0]))
-# %%
 ymax = 1.5
+cmap = plt.cm.Reds
+colors = [cmap((5-i)/5) for i in range(5)]
+# %%
 fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(10,2.2))
 for centroid_key in model.clusters:
     ax[centroid_key].tick_params(direction='in', top=True, right=True, which='both', width=1)
@@ -79,6 +82,37 @@ def plot_best_fits(c, model, cluster_params, all_losses):
 
 for c in range(4):
     plot_best_fits(c, model, cluster_params, all_losses)
+#%%
+def plot_best_fits2(c, model, cluster_params, all_losses):
+    data = odtrips[model.clusters[c]]
+    best_params = cluster_params[c]
+    loss_cluster = all_losses[c]
+    series_indices = [s for s, _ in loss_cluster[:10]]  # first 10 series with best fit
+    time = np.arange(data.shape[1])
+
+    ncols = 10
+    nrows = 1
+    fig, ax = plt.subplots(ncols=ncols, nrows=nrows, figsize=(20,2))
+    for i, s in enumerate(series_indices):
+        series = data[s]
+        mu = np.mean(series)
+        sigma = np.std(series)
+        fitted = resilience_curve(time, mu, sigma, best_params)
+        
+        ax[i].scatter(time, series, edgecolors='grey', facecolors='white', s=10)
+        ax[i].plot(time, fitted, '-', label='Fitted', linewidth=2, color=colors[c])
+        ax[i].spines[['left','right','top','bottom']].set_visible(False)
+        ax[i].set_xlim(0,40)
+        ax[i].set_ylim(0,ymax)
+        ax[i].set_xticks([])
+        ax[i].set_yticks([])
+        ax[i].text(s=f"C{c+1}S{i+1}", x=15, y=1.2, color="#001BB7")
+    ax[0].set_yticks([0,0.5,1,1.5])
+    ax[0].spines['left'].set_visible(True)
+    fig.savefig(f"figures/resilience_fit_cluster{c+1}_curves.pdf", bbox_inches='tight')
+
+for c in range(4):
+    plot_best_fits2(c, model, cluster_params, all_losses)
 # %%
 fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(10,1.8))
 
@@ -122,53 +156,9 @@ for c in clusters:
 ax[0].set_ylabel("Normalized # of trips")
 fig.savefig(f"figures/resilience_patterns.pdf", bbox_inches="tight")
 # %%
-# Inputs:
-# y_true: (n_samples, n_time_steps)
-# centroids: (n_clusters, n_time_steps)
-# cluster_dict: e.g., {"cluster 0": [0,2,3], "cluster 1": [1,4]}
-
-def compute_r2_smape_per_sample(y_true, centroids, cluster_dict):
-    n_samples = y_true.shape[0]
-    
-    # Arrays to store sample-wise R^2 and MAPE
-    r2_scores = np.zeros(n_samples)
-    mape_scores = np.zeros(n_samples)
-
-    # Iterate cluster by cluster
-    for c_name, sample_indices in cluster_dict.items():
-        # Extract integer cluster index if needed (e.g., "cluster 0")
-        cluster_idx = int(c_name)
-        
-        # Corresponding centroid time-series
-        y_pred_cluster = centroids[cluster_idx]  # shape: (n_time_steps,)
-        
-        for i in sample_indices:
-            y_t = y_true[i]              # shape: (n_time_steps,)
-            y_p = np.array(y_pred_cluster)         # shape: (n_time_steps,)
-
-            # ---- R^2 for sample i ----
-            ss_res = np.sum((y_t - y_p) ** 2)
-            ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-            r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
-            r2_scores[i] = r2
-
-            # ---- MAPE for sample i ----
-            den = (np.abs(y_t) + np.abs(y_p)) / 2
-
-            # Avoid division by zero (cases where both y_t and y_p are zero)
-            mask = den == 0
-            smape = np.empty_like(den)
-            smape[mask] = np.nan
-            smape[~mask] = np.abs(y_t[~mask] - y_p[~mask]) / den[~mask]
-
-            smape = np.mean(smape) * 100
-            mape_scores[i] = smape
-
-    return r2_scores, mape_scores
-
-# Example usage:
+# compute r2 and smape
 r2_per_sample, mape_per_sample = compute_r2_smape_per_sample(odtrips, model.centroids, model.clusters)
-#%%
+
 # These should each be length n_clusters
 n_od = 0
 r2_mean = np.zeros(4)
@@ -214,8 +204,7 @@ ax1.set_xlabel("Cluster")
 ax1.set_ylabel(r"$R^2$", color="#001BB7")
 bars_r2 = ax1.bar(x - width/2, r2_mean, width, yerr=r2_std, 
                   capsize=5, label=r"$R^2$",
-                  edgecolor="#001BB7", facecolor="#AAC4F5",
-                    ecolor="#001BB7")
+                  edgecolor="#001BB7", facecolor="#AAC4F5", ecolor="#001BB7")
 ax1.tick_params(axis="y", colors="#001BB7")
 ax1.spines["left"].set_color("#001BB7")
 ax1.set_ylim([0,1.25])
@@ -223,7 +212,7 @@ ax1.set_yticks([0,0.2,0.4,0.6,0.8,1,1.2])
 
 # --- Right axis (MAPE) ---
 ax2 = ax1.twinx()
-ax2.set_ylabel("MAPE (%)", color="#A72703")
+ax2.set_ylabel("SMAPE (%)", color="#A72703")
 bars_mape = ax2.bar(x + width/2, mape_mean, width, yerr=mape_std, capsize=5, label="Loss",
                     edgecolor="#A72703", facecolor="#FFF2EF", ecolor="#A72703")
 ax2.tick_params(direction='in', top=True, right=True, which='both', width=1.5)
@@ -290,7 +279,7 @@ for c in range(4):
 
     ax.plot(x_vals, density, label=f"Cluster {c+1}", color=colors[c])
 ax.legend()
-ax.set_xlabel("MAPE (%)")
+ax.set_xlabel("SMAPE (%)")
 ax.set_ylabel("Probability density")
 ax.set_xlim([0,100])
 ax.set_ylim([0,0.05])

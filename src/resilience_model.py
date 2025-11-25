@@ -41,3 +41,33 @@ def loss(params, data, time):
         pred = resilience_curve(time, mu, sigma, params)
         loss_val += np.sum((series - pred)**2)
     return loss_val
+
+def general_logistic(t, mu, sigma, params):
+    """
+    General logistic curve with the same input structure as resilience_curve.
+
+    t : array of time steps
+    mu, sigma : mean and std of the time series
+    params : list or array of logistic parameters
+        [alpha, beta, k, t0]
+    """
+    alpha, beta, k, t0 = params
+
+    # amplitude based on mu and sigma (parallel to your model)
+    A = alpha * sigma + beta * mu  
+
+    # general logistic function
+    L = A / (1 + np.exp(-k * (t - t0))) + mu - A/2
+
+    return L
+
+def loss_logistic(params, data, time):
+    n_series = data.shape[0]
+    loss_val = 0.0
+    for i in range(n_series):
+        series = data[i]
+        mu = np.mean(series)
+        sigma = np.std(series)
+        pred = general_logistic(time, mu, sigma, params)
+        loss_val += np.sum((series - pred) ** 2)
+    return loss_val
