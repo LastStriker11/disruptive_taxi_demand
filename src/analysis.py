@@ -1,5 +1,6 @@
 import numpy as np
-
+from sklearn.metrics import r2_score
+from sklearn.feature_selection import r_regression
 # Inputs:
 # y_true: (n_samples, n_time_steps)
 # centroids: (n_clusters, n_time_steps)
@@ -25,10 +26,12 @@ def compute_r2_smape_per_sample(y_true, centroids, cluster_dict):
             y_p = np.array(y_pred_cluster)         # shape: (n_time_steps,)
 
             # ---- R^2 for sample i ----
-            ss_res = np.sum((y_t - y_p) ** 2)
-            ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-            r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
-            r2_scores[i] = r2
+            # ss_res = np.sum((y_t - y_p) ** 2)
+            # ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
+            # r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+            # r2_scores[i] = r2
+            # r2_scores[i] = r2_score(y_t, y_p)
+            r2_scores[i] = np.sqrt((r_regression(y_p.reshape(-1, 1), y_t))**2)
 
             # ---- MAPE for sample i ----
             den = (np.abs(y_t) + np.abs(y_p)) / 2

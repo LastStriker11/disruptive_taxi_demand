@@ -9,10 +9,14 @@ from src.miscs import seed_everything
 
 seed_everything(11)
 
-odtrips = np.load(f'results/covid_demand_normalized.npy')
+sce = 'covid'
+odtrips = np.load(f'results/{sce}_demand_normalized.npy')
 odtrips[np.isnan(odtrips)] = 0
 max_iters = 100
-k = 3
+if sce == 'covid':
+    k = 4
+else:
+    k = 3
 # perform clustering
 
 all_metrics_dtw = []
@@ -20,7 +24,7 @@ all_metrics_euc = []
 for i in range(10):
     results = benchmark_dtw_vs_euclidean(
         data=np.array(odtrips),
-        k=3,
+        k=k,
         max_iters=max_iters,
         window_size=3,
         verbose=False
@@ -48,8 +52,8 @@ df_euc = pd.DataFrame(all_metrics_euc)
 # save results
 # df_dtw = pd.read_csv(f"results/all_metrics_dtw_covid.csv")
 # df_euc = pd.read_csv(f"results/all_metrics_euc_covid.csv")
-df_dtw.to_csv(f"results/all_metrics_dtw_covid.csv", index=False)
-df_euc.to_csv(f"results/all_metrics_euc_covid.csv", index=False)
+df_dtw.to_csv(f"results/all_metrics_dtw_{sce}.csv", index=False)
+df_euc.to_csv(f"results/all_metrics_euc_{sce}.csv", index=False)
 #%%
 mean_dtw = df_dtw.mean().values
 mean_dtw = mean_dtw[[0,3,4]]

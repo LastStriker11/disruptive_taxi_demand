@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tck
 from scipy.stats import gaussian_kde
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
+from sklearn.feature_selection import r_regression
 
 import pickle
 from src.clustering import DTWClustering
@@ -188,32 +190,31 @@ for c in range(4):
     mape_std[c] = mape_std_c
     loss_mean[c] = loss_mean_c
     loss_std[c] = loss_std_c
-
+#%%
 n_clusters = 4
 x = np.arange(n_clusters)
 width = 0.35  # bar width
 # -------------------------------------
-
 fig, ax1 = plt.subplots(figsize=(4.5,2.5))
 ax1.tick_params(direction='in', top=True, right=True, which='both', width=1.5)
 ax1.spines[['bottom','top','left']].set_linewidth(1.5)
 ax1.spines["right"].set_visible(False)
 
-# --- Left axis (R^2) ---
+# --- Left axis (Abs. Pearson) ---
 ax1.set_xlabel("Cluster")
-ax1.set_ylabel(r"$R^2$", color="#001BB7")
+ax1.set_ylabel(r"Absolute Pearson correlation", color="#001BB7")
 bars_r2 = ax1.bar(x - width/2, r2_mean, width, yerr=r2_std, 
-                  capsize=5, label=r"$R^2$",
+                  capsize=5, label=r"Abs. Pearson",
                   edgecolor="#001BB7", facecolor="#AAC4F5", ecolor="#001BB7")
 ax1.tick_params(axis="y", colors="#001BB7")
 ax1.spines["left"].set_color("#001BB7")
-ax1.set_ylim([0,1.25])
+ax1.set_ylim([0, 1.25])
 ax1.set_yticks([0,0.2,0.4,0.6,0.8,1,1.2])
 
 # --- Right axis (MAPE) ---
 ax2 = ax1.twinx()
 ax2.set_ylabel("SMAPE (%)", color="#A72703")
-bars_mape = ax2.bar(x + width/2, mape_mean, width, yerr=mape_std, capsize=5, label="Loss",
+bars_mape = ax2.bar(x + width/2, mape_mean, width, yerr=mape_std, capsize=5, label="SMAPE",
                     edgecolor="#A72703", facecolor="#FFF2EF", ecolor="#A72703")
 ax2.tick_params(direction='in', top=True, right=True, which='both', width=1.5)
 ax2.spines[['bottom','right']].set_linewidth(1.5)
@@ -226,37 +227,36 @@ ax2.set_ylim([0,50])
 ax1.set_xticks(x)
 ax1.set_xticklabels([f"Cluster {i+1}" for i in range(n_clusters)])
 handles = [bars_r2, bars_mape]
-labels = [r"$R^2$", "SMAPE"]
-ax1.legend(handles, labels, ncols=2, loc="upper left")
+labels = [r"Abs. Pearson", "SMAPE"]
+ax1.legend(handles, labels, ncols=2, loc="upper right")
 
-fig.savefig("figures/r2_mape_covid.pdf", bbox_inches="tight")
-# %%
+fig.savefig("figures/pearson_mape_covid.pdf", bbox_inches="tight")
+#%%
 fig, ax = plt.subplots(figsize=(3,2.5))
 ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
-ax.spines[['bottom','top','left', 'right']].set_linewidth(1)
+ax.spines[['bottom','top','left','right']].set_linewidth(1)
 ax.yaxis.set_minor_locator(tck.AutoMinorLocator())
 ax.xaxis.set_minor_locator(tck.AutoMinorLocator())
 ax.grid(True, linestyle='--', color='gray', alpha=0.5)
 
 cmap = plt.cm.Blues
 colors = [cmap((4-i)/4) for i in range(4)]
-cmap2 = plt.cm.Reds
-colors2 = [cmap2((4-i)/4) for i in range(4)]
 
 for c in range(4):
-    df_c = pd.DataFrame(all_losses[c])
+    df_c = pd.DataFrame(all_losses[c]) 
     r2c = r2_per_sample[df_c.iloc[:,0].tolist()]
     kde = gaussian_kde(r2c)
     x_vals = np.linspace(r2c.min(), r2c.max(), 200)
     density = kde(x_vals)
-
     ax.plot(x_vals, density, label=f"Cluster {c+1}", color=colors[c])
-ax.legend()
-ax.set_xlabel(r"$R^2$")
+
+leg = ax.legend(loc="upper left", frameon=True)
+ax.set_xlabel(r"Absolute Pearson correlation")
 ax.set_ylabel("Probability density")
-ax.set_xlim([0.2,1])
-ax.set_ylim([0,5])
-fig.savefig("figures/dist_r2_covid.pdf", bbox_inches="tight")
+ax.set_xlim([0.77,1])
+ax.set_ylim([0,13])
+
+fig.savefig("figures/dist_pearson_covid.pdf", bbox_inches="tight")
 #%%
 fig, ax = plt.subplots(figsize=(3,2.5))
 ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
@@ -300,10 +300,11 @@ for c in range(4):
         mu, sigma = np.mean(y_t), np.std(y_t)
         y_p = resilience_curve(time, mu, sigma, cluster_params[c])
         # ---- R^2 for sample i ----
-        ss_res = np.sum((y_t - y_p) ** 2)
-        ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
-        r2_scores[i] = r2
+        # ss_res = np.sum((y_t - y_p) ** 2)
+        # ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
+        # r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+        # r2_scores[i] = r2
+        r2_scores[i] = np.sqrt((r_regression(y_p.reshape(-1, 1), y_t))**2)
 
         # ---- MAPE for sample i ----
         den = (np.abs(y_t) + np.abs(y_p)) / 2
@@ -322,11 +323,11 @@ for c in range(4):
     rec_40.append(data[:,-1].mean())
 # %%
 for c in range(4):
-    print(f"Avg $R^2$ of Cluster {c+1}: ", all_r2[c].mean())
+    print(f"Absolute Pearson of Cluster {c+1}: ", all_r2[c].mean())
     # print(f"Std $R^2$ of Cluster {c+1}: ", all_r2[c].std())
     print(f"Avg SMAPE of Cluster {c+1}: ", np.nanmean(all_mape[c]))
     # print(f"Std SMAPE of Cluster {c+1}: ", np.nanstd(all_mape[c]))
-    print(f"Avg loss of Cluster {c+1}: ", loss_mean[c])
+    print(f"RMSE of Cluster {c+1}: ", np.sqrt(loss_mean[c]))
     # print(f"Std loss of Cluster {c+1}: ", loss_std[c])
     print(f"Value at week 25: ", rec_25[c])
     print(f"Value at week 40: ", rec_40[c])

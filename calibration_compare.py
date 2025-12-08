@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import pickle
+from sklearn.feature_selection import r_regression
 
 from src.clustering import DTWClustering
 from src.resilience_model import resilience_curve, general_logistic, loss_logistic
@@ -11,15 +12,18 @@ from src.analysis import compute_r2_smape_per_sample
 from src.miscs import seed_everything
 
 seed_everything(11)
-
-odtrips = np.load(f'results/covid_demand_normalized.npy')
+sce = 'covid'
+odtrips = np.load(f'results/{sce}_demand_normalized.npy')
 odtrips[np.isnan(odtrips)] = 0
-
+if sce == 'covid':
+    k = 4
+else:
+    k = 3
 model = DTWClustering(odtrips, 4)
-model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid.pkl', 'rb'))
+model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open(f'results/results_{sce}.pkl', 'rb'))
 
 cluster_params_lf = []
-for c in range(4):
+for c in range(k):
     data = odtrips[model.clusters[c]]
     time = np.arange(data.shape[1])
     # Initial guess
@@ -33,7 +37,7 @@ for c in range(4):
 #%%
 # Find the best-fitting time series
 all_losses_lf = []
-for c in range(4):
+for c in range(k):
     best_params = cluster_params_lf[c]
     data = odtrips[model.clusters[c]]
     loss_cluster = []
@@ -50,9 +54,7 @@ for c in range(4):
 # Calculate calibration accuracy for ILRF
 all_r2 = []
 all_mape = []
-rec_25 = []
-rec_40 = []
-for c in range(4):
+for c in range(k):
     cluster_curves = []
     data = odtrips[model.clusters[c]]
     r2_scores = np.zeros(len(data))
@@ -62,10 +64,11 @@ for c in range(4):
         mu, sigma = np.mean(y_t), np.std(y_t)
         y_p = resilience_curve(time, mu, sigma, cluster_params[c])
         # ---- R^2 for sample i ----
-        ss_res = np.sum((y_t - y_p) ** 2)
-        ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
-        r2_scores[i] = r2
+        # ss_res = np.sum((y_t - y_p) ** 2)
+        # ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
+        # r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+        # r2_scores[i] = r2
+        r2_scores[i] = np.sqrt((r_regression(y_p.reshape(-1, 1), y_t))**2)
 
         # ---- MAPE for sample i ----
         den = (np.abs(y_t) + np.abs(y_p)) / 2
@@ -80,15 +83,11 @@ for c in range(4):
 
     all_r2.append(r2_scores)
     all_mape.append(mape_scores)
-    rec_25.append(data[:,24].mean())
-    rec_40.append(data[:,-1].mean())
 # %%
 # Calculate calibration accuracy for logistic functions
 all_r2_lf = []
 all_mape_lf = []
-rec_25_lf = []
-rec_40_lf = []
-for c in range(4):
+for c in range(k):
     cluster_curves = []
     data = odtrips[model.clusters[c]]
     r2_scores = np.zeros(len(data))
@@ -98,30 +97,29 @@ for c in range(4):
         mu, sigma = np.mean(y_t), np.std(y_t)
         y_p = general_logistic(time, mu, sigma, cluster_params_lf[c])
         # ---- R^2 for sample i ----
-        ss_res = np.sum((y_t - y_p) ** 2)
-        ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
-        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
-        r2_scores[i] = r2
+        # ss_res = np.sum((y_t - y_p) ** 2)
+        # ss_tot = np.sum((y_t - np.mean(y_t)) ** 2)
+        # r2 = 1 - ss_res / ss_tot if ss_tot != 0 else np.nan
+        # r2_scores[i] = r2
+        r2_scores[i] = np.sqrt((r_regression(y_p.reshape(-1, 1), y_t))**2)
 
         # ---- MAPE for sample i ----
         den = (np.abs(y_t) + np.abs(y_p)) / 2
         # Avoid division by zero (cases where both y_t and y_p are zero)
-        mask = den == 0
+        mask = den < 0.1
         smape = np.empty_like(den)
         smape[mask] = np.nan
         smape[~mask] = np.abs(y_t[~mask] - y_p[~mask]) / den[~mask]
 
-        smape = np.mean(smape) * 100
+        smape = np.nanmean(smape) * 100
         mape_scores[i] = smape
 
     all_r2_lf.append(r2_scores)
     all_mape_lf.append(mape_scores)
-    rec_25_lf.append(data[:,24].mean())
-    rec_40_lf.append(data[:,-1].mean())
 #%%
 n_od = 0
-loss_mean = np.zeros(4)
-for c in range(4):
+loss_mean = np.zeros(k)
+for c in range(k):
         df_c = pd.DataFrame(all_losses[c])
         n_c = len(df_c)
         loss_mean_c = np.nanmean(df_c.iloc[:,-1])
@@ -129,8 +127,8 @@ for c in range(4):
         n_od += n_c
 
 n_od = 0
-loss_mean_lf = np.zeros(4)
-for c in range(4):
+loss_mean_lf = np.zeros(k)
+for c in range(k):
     df_c = pd.DataFrame(all_losses_lf[c])
     n_c = len(df_c)
     loss_mean_c = np.nanmean(df_c.iloc[:,-1])
@@ -143,13 +141,19 @@ mape_sum = 0
 mape_sum_lf = 0
 loss_sum = 0
 loss_sum_lf = 0
-for c in range(4):
+for c in range(k):
     # ILRF
-    r2_sum += all_r2[c].sum()
+    r2c = all_r2[c]
+    finite_mean = np.mean(r2c[np.isfinite(r2c)])
+    r2c[np.isinf(r2c)] = finite_mean
+    r2_sum += r2c.sum()
     mape_sum += all_mape[c].sum()
     loss_sum += loss_mean[c].sum()
     # Logistic
-    r2_sum_lf += all_r2_lf[c].sum()
+    r2c = all_r2_lf[c]
+    finite_mean = np.mean(r2c[np.isfinite(r2c)])
+    r2c[np.isinf(r2c)] = finite_mean
+    r2_sum_lf += r2c.sum()
     mape_sum_lf += all_mape_lf[c].sum()
     loss_sum_lf += loss_mean_lf[c].sum()
     
@@ -165,7 +169,7 @@ print(f"Avg loss: ", loss_sum_lf/odtrips.shape[0])
 time = range(len(model.centroids[0]))
 ymax = 1.5
 cmap = plt.cm.Reds
-colors = [cmap((5-i)/5) for i in range(5)]
+colors = [cmap((k+1-i)/(k+1)) for i in range(k+1)]
 def plot_best_fits2(c, model, cluster_params, all_losses, cluster_params_lf, all_losses_lf):
     data = odtrips[model.clusters[c]]
     best_params = cluster_params[c]
