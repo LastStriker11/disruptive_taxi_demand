@@ -15,7 +15,7 @@ from src.analysis import compute_r2_smape_per_sample
 # load data and model
 odtrips = np.load('results/covid_demand_normalized.npy')
 model = DTWClustering(odtrips, 4)
-model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid.pkl', 'rb'))
+model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid2.pkl', 'rb'))
 time = range(len(model.centroids[0]))
 ymax = 1.5
 cmap = plt.cm.Reds
@@ -309,7 +309,8 @@ for c in range(4):
         # ---- MAPE for sample i ----
         den = (np.abs(y_t) + np.abs(y_p)) / 2
         # Avoid division by zero (cases where both y_t and y_p are zero)
-        mask = den == 0
+        # mask = den == 0
+        mask = den < 0.1
         smape = np.empty_like(den)
         smape[mask] = np.nan
         smape[~mask] = np.abs(y_t[~mask] - y_p[~mask]) / den[~mask]

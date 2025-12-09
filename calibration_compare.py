@@ -12,14 +12,14 @@ from src.analysis import compute_r2_smape_per_sample
 from src.miscs import seed_everything
 
 seed_everything(11)
-sce = 'covid'
-odtrips = np.load(f'results/{sce}_demand_normalized.npy')
-odtrips[np.isnan(odtrips)] = 0
+sce = 'snowstorm'
 if sce == 'covid':
     k = 4
 else:
     k = 3
-model = DTWClustering(odtrips, 4)
+odtrips = np.load(f'results/{sce}_demand_normalized.npy')
+odtrips[np.isnan(odtrips)] = 0
+model = DTWClustering(odtrips, k)
 model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open(f'results/results_{sce}.pkl', 'rb'))
 
 cluster_params_lf = []

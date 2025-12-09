@@ -5,6 +5,9 @@ import pickle
 
 from src.clustering import DTWClustering
 from src.resilience_model import resilience_curve, loss
+from src.miscs import seed_everything
+
+seed_everything(11)
 #%%
 # load data
 odtrips = np.load('results/covid_demand_normalized.npy')
@@ -25,6 +28,14 @@ for c in range(4):
     bounds = [(None,None), (None,None), (None,None), (None,None), 
               (None,None), (None,None), (None,None), (None,None), (None,None),
               (5,8), (12,40), (8,15), (0,None)]
+    if c == 0:
+        params0 = np.array([-0.3, -0.3, 1.0, 2,
+                            -0.3, -0.3, -0.1, 3.0, 0.01,
+                            7.5, 25, 12, 0.5])
+    if c == 1:
+        params0 = np.array([-0.3, -0.3, 1.0, 2,
+                            -0.3, -0.3, -0.1, 3.0, 0.01,
+                            7.5, 25, 12, 0.5])
     if c == 2:
         params0 = np.array([-0.3, -0.3, 1.0, 2,
                             -0.3, -0.3, -0.1, 3.0, 0.01,
@@ -60,7 +71,7 @@ for c in range(4):
         print(f"Series {idx}: MSE = {mse:.6f}")
     all_losses.append(loss_cluster)
 # %%
-f = open('results/results_covid.pkl', 'wb')
+f = open('results/results_covid2.pkl', 'wb')
 pickle.dump([model.clusters, model.centroids, cluster_params, all_losses], f)
 f.close()
 # %%
