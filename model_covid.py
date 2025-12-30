@@ -71,7 +71,7 @@ for c in range(4):
         print(f"Series {idx}: MSE = {mse:.6f}")
     all_losses.append(loss_cluster)
 # %%
-f = open('results/results_covid2.pkl', 'wb')
+f = open('results/results_covid.pkl', 'wb')
 pickle.dump([model.clusters, model.centroids, cluster_params, all_losses], f)
 f.close()
 # %%

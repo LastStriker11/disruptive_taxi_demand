@@ -12,7 +12,20 @@ odtrips = np.load('results/snowstorm_demand_normalized_v2.npy')
 odtrips = odtrips[~np.isnan(odtrips).any(axis=1)]
 model = DTWClustering(odtrips, 3)
 model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_snowstorm_v2.pkl', 'rb'))
-
+# reorder clusters: 0,1,2 -> 1,0,2
+model.clusters = {0: model.clusters[1],
+                  1: model.clusters[0],
+                  2: model.clusters[2]}
+model.centroids = {0: model.centroids[1],
+                   1: model.centroids[0],
+                   2: model.centroids[2]}
+cluster_params = {0: cluster_params[1],
+                  1: cluster_params[0],
+                  2: cluster_params[2]}
+all_losses = {0: all_losses[1],
+               1: all_losses[0],
+               2: all_losses[2]}
+#%%
 xmax = len(model.centroids[0])
 ymax = 1.5
 time = range(xmax)

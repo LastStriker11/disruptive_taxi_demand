@@ -15,7 +15,25 @@ from src.analysis import compute_r2_smape_per_sample
 # load data and model
 odtrips = np.load('results/covid_demand_normalized.npy')
 model = DTWClustering(odtrips, 4)
-model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid2.pkl', 'rb'))
+model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open('results/results_covid.pkl', 'rb'))
+# reorder clusters: 0,1,2,3 -> 2,0,1,3
+model.clusters = {0: model.clusters[2],
+                  1: model.clusters[0],
+                  2: model.clusters[1],
+                  3: model.clusters[3]}
+model.centroids = {0: model.centroids[2],
+                   1: model.centroids[0],
+                   2: model.centroids[1],
+                   3: model.centroids[3]}
+cluster_params = {0: cluster_params[2],
+                  1: cluster_params[0],
+                  2: cluster_params[1],
+                  3: cluster_params[3]}
+all_losses = {0: all_losses[2],
+               1: all_losses[0],
+               2: all_losses[1],
+               3: all_losses[3]}
+# %%
 time = range(len(model.centroids[0]))
 ymax = 1.5
 cmap = plt.cm.Reds
@@ -209,7 +227,7 @@ bars_r2 = ax1.bar(x - width/2, r2_mean, width, yerr=r2_std,
 ax1.tick_params(axis="y", colors="#001BB7")
 ax1.spines["left"].set_color("#001BB7")
 ax1.set_ylim([0, 1.25])
-ax1.set_yticks([0,0.2,0.4,0.6,0.8,1,1.2])
+ax1.set_yticks([0,0.2,0.4,0.6,0.8,1])
 
 # --- Right axis (MAPE) ---
 ax2 = ax1.twinx()
@@ -241,14 +259,14 @@ ax.grid(True, linestyle='--', color='gray', alpha=0.5)
 
 cmap = plt.cm.Blues
 colors = [cmap((4-i)/4) for i in range(4)]
-
+ls = ['-', '--', '-.', ':']
 for c in range(4):
     df_c = pd.DataFrame(all_losses[c]) 
     r2c = r2_per_sample[df_c.iloc[:,0].tolist()]
     kde = gaussian_kde(r2c)
     x_vals = np.linspace(r2c.min(), r2c.max(), 200)
     density = kde(x_vals)
-    ax.plot(x_vals, density, label=f"Cluster {c+1}", color=colors[c])
+    ax.plot(x_vals, density, label=f"Cluster {c+1}", linestyle=ls[c])
 
 leg = ax.legend(loc="upper left", frameon=True)
 ax.set_xlabel(r"Absolute Pearson correlation")
@@ -277,7 +295,7 @@ for c in range(4):
     x_vals = np.linspace(0, 100, 200)
     density = kde(x_vals)
 
-    ax.plot(x_vals, density, label=f"Cluster {c+1}", color=colors[c])
+    ax.plot(x_vals, density, label=f"Cluster {c+1}", linestyle=ls[c])
 ax.legend()
 ax.set_xlabel("SMAPE (%)")
 ax.set_ylabel("Probability density")

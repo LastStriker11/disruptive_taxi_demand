@@ -12,7 +12,7 @@ from src.analysis import compute_r2_smape_per_sample
 from src.miscs import seed_everything
 
 seed_everything(11)
-sce = 'snowstorm'
+sce = 'covid'
 if sce == 'covid':
     k = 4
 else:
@@ -21,6 +21,23 @@ odtrips = np.load(f'results/{sce}_demand_normalized.npy')
 odtrips[np.isnan(odtrips)] = 0
 model = DTWClustering(odtrips, k)
 model.clusters, model.centroids, cluster_params, all_losses = pickle.load(open(f'results/results_{sce}.pkl', 'rb'))
+# reorder clusters: 0,1,2,3 -> 2,0,1,3
+model.clusters = {0: model.clusters[2],
+                  1: model.clusters[0],
+                  2: model.clusters[1],
+                  3: model.clusters[3]}
+model.centroids = {0: model.centroids[2],
+                   1: model.centroids[0],
+                   2: model.centroids[1],
+                   3: model.centroids[3]}
+cluster_params = {0: cluster_params[2],
+                  1: cluster_params[0],
+                  2: cluster_params[1],
+                  3: cluster_params[3]}
+all_losses = {0: all_losses[2],
+               1: all_losses[0],
+               2: all_losses[1],
+               3: all_losses[3]}
 
 cluster_params_lf = []
 for c in range(k):
