@@ -353,6 +353,73 @@ for c in range(4):
     print("Parameters: ", cluster_params[c])
     print("---------------------------------------------")
 # %%
-    # [alpha_d, beta_d, k_d, v_d, 
-    # alpha_r, beta_r, k_r, v_r, m, 
-    # t_d, t_r, t_s, k_s]
+# %%
+fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(4,2.2))
+for centroid_key in model.clusters:
+    ax[int(centroid_key/2),centroid_key%2].spines[['left','right','top','bottom']].set_visible(False)
+
+    for series_index in model.clusters[centroid_key][:5]:
+        series = odtrips[series_index]
+        ax[int(centroid_key/2),centroid_key%2].plot(np.arange(len(series)), series, color='grey', alpha=0.3)
+    ax[int(centroid_key/2),centroid_key%2].plot(np.arange(len(series)), model.centroids[centroid_key], color='tab:blue')
+
+    # if centroid_key%2 == 2:
+    ax[int(centroid_key/2),centroid_key%2].set_xticks([])
+    ax[int(centroid_key/2),centroid_key%2].set_yticks([])
+    # ax[centroid_key].set_yticks([0,0.2,0.4,0.6,0.8,1])
+    ax[int(centroid_key/2),centroid_key%2].set_xlim(0,40)
+    ax[int(centroid_key/2),centroid_key%2].set_ylim(0,ymax)
+plt.tight_layout()
+fig.savefig(f"figures/clustering_sample.pdf", bbox_inches='tight')
+#%%
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(1.8,1.8))
+
+cmap = plt.cm.Reds
+colors = [cmap((5-i)/5) for i in range(5)]
+ax.tick_params(direction='in', top=True, right=True, which='both', width=1)
+ax.spines[['bottom','top','left','right']].set_visible(False)
+
+cluster_curves = []
+data = odtrips[model.clusters[c]]
+# Compute fitted curves for all series in the cluster
+for i, _ in enumerate(data):
+    mu, sigma = np.mean(data[i]), np.std(data[i])
+    curve = resilience_curve(time, mu, sigma, cluster_params[c])
+    cluster_curves.append(curve)
+    # ax[c].scatter(np.arange(len(data[i])), data[i], color='grey', alpha=0.3, s=20)
+
+cluster_curves = np.array(cluster_curves)
+mean_curve = np.mean(cluster_curves, axis=0)
+lower_bound = np.min(cluster_curves, axis=0)
+upper_bound = np.max(cluster_curves, axis=0)
+
+# Plot the DTW center
+ax.plot(np.arange(len(model.centroids[c])), model.centroids[c], color='tab:blue', linestyle='--', linewidth=1)
+# Plot mean and bounds
+ax.plot(time, mean_curve, color=colors[c], linewidth=1.5, label=f'Cluster {c+1}')
+# ax.fill_between(time, lower_bound, upper_bound, color=colors[c], alpha=0.4)
+
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_xlim(0,40)
+ax.set_ylim(0,ymax)
+fig.savefig(f"figures/pattern4.pdf", bbox_inches="tight")
+#%%
+cluster_sample = [cluster_curves[0], lower_bound, upper_bound]
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(1.8,6))
+
+cmap = plt.cm.Reds
+colors = [cmap((5-i)/5) for i in range(5)]
+
+for s in range(3):
+    ax[s].tick_params(direction='in', top=True, right=True, which='both', width=1)
+    ax[s].spines[['bottom','top','left','right']].set_visible(False)
+    # Plot mean and bounds
+    ax[s].plot(time, cluster_sample[s], color=colors[c], linewidth=1.5, label=f'Cluster {c+1}')
+    # ax.fill_between(time, lower_bound, upper_bound, color=colors[c], alpha=0.4)
+
+    ax[s].set_xticks([])
+    ax[s].set_yticks([])
+    ax[s].set_xlim(0,40)
+    ax[s].set_ylim(0,ymax+0.2)
+fig.savefig(f"figures/sample4.pdf", bbox_inches="tight")
