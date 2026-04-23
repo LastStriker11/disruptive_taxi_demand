@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.metrics import r2_score
 from sklearn.feature_selection import r_regression
+from dtaidistance import dtw
+from tqdm import tqdm
 # Inputs:
 # y_true: (n_samples, n_time_steps)
 # centroids: (n_clusters, n_time_steps)
@@ -46,3 +48,52 @@ def compute_r2_smape_per_sample(y_true, centroids, cluster_dict):
             mape_scores[i] = smape
 
     return r2_scores, mape_scores
+
+
+def silhouette_score_dtw_memory_efficient(X, labels):
+    """
+    Memory-efficient silhouette score calculation using DTW.
+    """
+    n_samples = len(X)
+    labels = np.array(labels)
+    unique_labels = np.unique(labels)
+    
+    silhouette_values = []
+    
+    # Calculate silhouette score for each sample
+    for i in tqdm(range(n_samples), desc="Computing silhouette scores"):
+        a_i = 0  # Mean distance to same cluster
+        same_cluster_count = 0
+        
+        b_i = float('inf')  # Min mean distance to other clusters
+        
+        # Calculate distances to all other points
+        distances_to_others = []
+        
+        for j in range(n_samples):
+            if i != j:
+                dist = dtw.distance(X[i], X[j])
+                distances_to_others.append((dist, labels[j]))
+        
+        # Calculate a(i): mean distance to points in same cluster
+        same_cluster_distances = [dist for dist, lbl in distances_to_others if lbl == labels[i]]
+        if same_cluster_distances:
+            a_i = np.mean(same_cluster_distances)
+        
+        # Calculate b(i): min mean distance to other clusters
+        for other_label in unique_labels:
+            if other_label != labels[i]:
+                other_cluster_distances = [dist for dist, lbl in distances_to_others if lbl == other_label]
+                if other_cluster_distances:
+                    mean_distance = np.mean(other_cluster_distances)
+                    b_i = min(b_i, mean_distance)
+        
+        # Calculate silhouette for sample i
+        if b_i == float('inf'):
+            s_i = 0
+        else:
+            s_i = (b_i - a_i) / max(a_i, b_i)
+        
+        silhouette_values.append(s_i)
+    
+    return np.mean(silhouette_values)

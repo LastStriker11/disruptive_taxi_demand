@@ -11,6 +11,7 @@ import pickle
 from src.clustering import DTWClustering
 from src.resilience_model import resilience_curve, loss
 from src.analysis import compute_r2_smape_per_sample
+from src.resilience_model import area_below_line
 #%%
 # load data and model
 odtrips = np.load('results/covid_demand_normalized.npy')
@@ -159,6 +160,14 @@ for c in clusters:
     lower_bound = np.min(cluster_curves, axis=0)
     upper_bound = np.max(cluster_curves, axis=0)
 
+    # calculate resilience metrics
+    # Y_min
+    print(f"Y_min mean {np.min(cluster_curves, axis=1).mean()}, std {np.min(cluster_curves, axis=1).std()}")
+    # resilience loss
+    r_loss = []
+    for i in range(cluster_curves.shape[0]):
+        r_loss.append(area_below_line(time, cluster_curves[i], line_y=1))
+    print(f"Resilience loss mean {np.mean(r_loss)}, std {np.std(r_loss)}")
     # Plot the DTW center
     ax[c].plot(np.arange(len(model.centroids[c])), model.centroids[c], color='tab:blue', linestyle='--', linewidth=1)
     # Plot mean and bounds

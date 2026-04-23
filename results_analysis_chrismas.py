@@ -141,3 +141,34 @@ def plot_best_fits(c, model, cluster_params, all_losses):
 for c in range(3):
     plot_best_fits(c, model, cluster_params, all_losses)
 # %%
+def plot_best_fits2(c, model, cluster_params, all_losses):
+    data = odtrips[model.clusters[c]]
+    best_params = cluster_params[c]
+    loss_cluster = all_losses[c]
+    series_indices = [s for s, _ in loss_cluster[:10]]  # first 10 series with best fit
+    time = np.arange(data.shape[1])
+
+    ncols = 10
+    nrows = 1
+    fig, ax = plt.subplots(ncols=ncols, nrows=nrows, figsize=(20,2))
+    for i, s in enumerate(series_indices):
+        series = data[s]
+        mu = np.mean(series)
+        sigma = np.std(series)
+        fitted = resilience_curve(time, mu, sigma, best_params)
+        
+        ax[i].scatter(time, series, edgecolors='grey', facecolors='white', s=10)
+        ax[i].plot(time, fitted, '-', label='Fitted', linewidth=2, color=colors[c])
+        ax[i].spines[['left','right','top','bottom']].set_visible(False)
+        ax[i].set_xlim(0,xmax)
+        ax[i].set_ylim(0,ymax)
+        ax[i].set_xticks([])
+        ax[i].set_yticks([])
+        ax[i].text(s=f"C{c+1}S{i+1}", x=4, y=1.3, color="#001BB7")
+    ax[0].set_yticks([0,0.5,1,1.5])
+    ax[0].spines['left'].set_visible(True)
+    fig.savefig(f"figures/fit_christmas_cluster{c+1}_curves.pdf", bbox_inches='tight')
+
+for c in range(3):
+    plot_best_fits2(c, model, cluster_params, all_losses) 
+# %%
