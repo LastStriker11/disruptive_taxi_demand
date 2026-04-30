@@ -220,4 +220,3 @@ def plot_best_fits2(c, model, cluster_params, all_losses, cluster_params_lf, all
 
 for c in range(4):
     plot_best_fits2(c, model, cluster_params, all_losses, cluster_params_lf, all_losses_lf)
-# %%

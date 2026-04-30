@@ -161,7 +161,7 @@ def plot_best_fits2(c, model, cluster_params, all_losses):
         ax[i].plot(time, fitted, '-', label='Fitted', linewidth=2, color=colors[c])
         ax[i].spines[['left','right','top','bottom']].set_visible(False)
         ax[i].set_xlim(0,xmax)
-        ax[i].set_ylim(0,ymax)
+        ax[i].set_ylim(-0.3,1.8)
         ax[i].set_xticks([])
         ax[i].set_yticks([])
         ax[i].text(s=f"C{c+1}S{i+1}", x=4, y=1.3, color="#001BB7")
